@@ -10,7 +10,7 @@ continous integration/continous delivery (CI/CD) with TwinCAT available at:
 
 This repository includes the following content:
 
-## [CodeAnalysisDemoLibrary](https://github.com/sagatowski/TcStaticAnalysisLoader/CodeAnalysisDemoTcLibrary)
+## [CodeAnalysisDemoLibrary](https://github.com/sagatowski/TcStaticAnalysisLoader/tree/master/CodeAnalysisDemoTcLibrary)
 A TwinCAT PLC project that is to be analysed for static code analysis. This also
 includes the windows batch-script to be executed by a Jenkins job when a GIT
 repository change has been detected in the TwinCAT PLC project. This BAT-script
