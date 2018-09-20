@@ -65,7 +65,7 @@ IF NOT DEFINED TWINCAT_PROJECT_PATH (
 
 rem Run the TwinCAT automation interface application
 IF EXIST "%TC_STATIC_ANALYSIS_LOADER_PATH%" (
-    "%TC_STATIC_ANALYSIS_LOADER_PATH%" -v %VisualStudioSolutionFilePath% -t %TwinCATProjectFilePath%
+    "%TC_STATIC_ANALYSIS_LOADER_PATH%" -v %VISUAL_STUDIO_SOLUTION_PATH% -t %TWINCAT_PROJECT_PATH%
 ) ELSE (
     echo The configured search path for TcStaticAnalysisLoader does not exist!
     GOTO Exit
