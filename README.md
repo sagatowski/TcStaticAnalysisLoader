@@ -6,15 +6,22 @@ continous integration/continous delivery (CI/CD) with TwinCAT available at:
 - [Part one](http://alltwincat.com/2018/07/05/ci-cd-with-twincat-part-one/)
 - [Part two](http://alltwincat.com/2018/07/26/ci-cd-with-twincat-part-two/)
 - [Part three](http://alltwincat.com/2018/08/28/ci-cd-with-twincat-part-three/)
-- Part four (coming soon)
+- [Part four](http://alltwincat.com/2018/10/04/ci-cd-with-twincat-part-four/)
+
+It's strongly recommended to read these four documents to get an introduction
+and vital background information to this software.
 
 This repository includes the following content:
 
-## [CodeAnalysisDemoLibrary](https://github.com/sagatowski/TcStaticAnalysisLoader/tree/master/CodeAnalysisDemoTcLibrary)
+## [CodeAnalysisDemoTcLibrary](https://github.com/sagatowski/TcStaticAnalysisLoader/tree/master/CodeAnalysisDemoTcLibrary)
 A TwinCAT PLC project that is to be analysed for static code analysis. This also
 includes the windows batch-script to be executed by a Jenkins job when a GIT
 repository change has been detected in the TwinCAT PLC project. This BAT-script
-launches the TwinCAT static code analysis starter project described below.
+launches the TwinCAT static code analysis program described below (TcStaticAnalysisLoader).
 
-## TcStaticAnalysisLoader
-Coming when part four of the series has been published.
+## [TcStaticAnalysisLoader](https://github.com/sagatowski/TcStaticAnalysisLoader/tree/master/TcStaticAnalysisLoader)
+A C# .NET program that does the static code analysis using Beckhoffs TE1200 product
+and reports the result back to the caller as either ERROR, UNSTABLE or SUCCESSFUL
+which can be used for instance in a Jenkins build slave. The static code analysis is filtered
+out from the TwinCAT build procedure. This program is used together with the batch-script
+from the CodeAnalysisDemoTcLibrary folder.

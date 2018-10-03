@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4022.12">
+  <POU Name="MAIN" Id="{45fa1b65-8964-4d83-bf67-fe76a4f119d2}" SpecialFunc="None">
+    <Declaration><![CDATA[PROGRAM MAIN
+VAR
+	bJustASimpleBoolean : BOOL; // SA0033 - WARNING
+	sThisStringIsTooLong : STRING(6) := 'Hello world'; // SA0026 - ERROR
+	
+	nCounter : ULINT;
+END_VAR ]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[nCounter := nCounter + 1;
+
+sThisStringIsTooLong := '';]]></ST>
+    </Implementation>
+    <LineIds Name="MAIN">
+      <LineId Id="2" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>
