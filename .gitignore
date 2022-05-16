@@ -75,3 +75,4 @@ Packages*/
 
 # Office Temp Files
 ~$*
+/TcStaticAnalysisLoader/TcStaticAnalysisLoader/Properties/launchSettings.json
