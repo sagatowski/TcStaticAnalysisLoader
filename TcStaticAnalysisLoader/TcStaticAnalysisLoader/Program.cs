@@ -23,29 +23,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using EnvDTE80;
 using NDesk.Options;
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TCatSysManagerLib;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
 {
     class Program
     {
-        private static string VisualStudioSolutionFilePath = null;
-        private static string TwinCATProjectFilePath = null;
-
         [STAThread]
         static int Main(string[] args)
         {
             bool showHelp = false;
 
+            string visualStudioSolutionFilePath = string.Empty;
+            string twincatProjectFilePath = string.Empty;
+
             OptionSet options = new OptionSet()
-                .Add("v=|VisualStudioSolutionFilePath=", v => VisualStudioSolutionFilePath = v)
-                .Add("t=|TwinCATProjectFilePath=", t => TwinCATProjectFilePath = t)
+                .Add("v=|visualStudioSolutionFilePath=", v => visualStudioSolutionFilePath = v)
+                .Add("t=|twincatProjectFilePath=", t => twincatProjectFilePath = t)
                 .Add("?|h|help", h => showHelp = h != null);
 
             try
@@ -60,35 +54,33 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             }
             options.Parse(args);
 
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 1: " + VisualStudioSolutionFilePath);
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 2: " + TwinCATProjectFilePath);
+            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 1: " + visualStudioSolutionFilePath);
+            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 2: " + twincatProjectFilePath);
 
             /* Make sure the user has supplied the paths for both the Visual Studio solution file
              * and the TwinCAT project file. Also verify that these two files exists.
              */
-            if (showHelp || VisualStudioSolutionFilePath == null || TwinCATProjectFilePath == null)
+            if (showHelp || visualStudioSolutionFilePath == null || twincatProjectFilePath == null)
             {
                 DisplayHelp(options);
                 return Constants.RETURN_ERROR;
             }
-            if (!File.Exists(VisualStudioSolutionFilePath))
+            if (!File.Exists(visualStudioSolutionFilePath))
             {
-                Console.WriteLine("ERROR: Visual studio solution " + VisualStudioSolutionFilePath + " does not exist!");
+                Console.WriteLine("ERROR: Visual studio solution " + visualStudioSolutionFilePath + " does not exist!");
                 return Constants.RETURN_ERROR;
             }
-            if (!File.Exists(TwinCATProjectFilePath))
+            if (!File.Exists(twincatProjectFilePath))
             {
-                Console.WriteLine("ERROR : TwinCAT project file " + TwinCATProjectFilePath + " does not exist!");
+                Console.WriteLine("ERROR : TwinCAT project file " + twincatProjectFilePath + " does not exist!");
                 return Constants.RETURN_ERROR;
             }
 
 
             /* Find visual studio version */
             string vsVersion = "";
-            string line;
             bool foundVsVersionLine = false;
-            System.IO.StreamReader file = new System.IO.StreamReader(@VisualStudioSolutionFilePath);
-            while ((line = file.ReadLine()) != null)
+            foreach (string line in File.ReadLines(visualStudioSolutionFilePath))
             {
                 if (line.StartsWith("VisualStudioVersion"))
                 {
@@ -109,7 +101,6 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                     break;
                 }
             }
-            file.Close();
 
             if (!foundVsVersionLine)
             {
@@ -120,8 +111,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             /* Find TwinCAT project version */
             string tcVersion = "";
             bool foundTcVersionLine = false;
-            file = new System.IO.StreamReader(@TwinCATProjectFilePath);
-            while ((line = file.ReadLine()) != null)
+            foreach(string line in File.ReadLines(@twincatProjectFilePath))
             {
                 if (line.Contains("TcVersion"))
                 {
@@ -137,7 +127,6 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                     break;
                 }
             }
-            file.Close();
             if (!foundTcVersionLine)
             {
                 Console.WriteLine("Did not find TcVersion in TwinCAT project file");
@@ -164,13 +153,26 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
              * TwinCAT project was created in
              */
             string VisualStudioProgId = "VisualStudio.DTE." + vsVersion;
-            Type type = System.Type.GetTypeFromProgID(VisualStudioProgId);
-            EnvDTE80.DTE2 dte = (EnvDTE80.DTE2)System.Activator.CreateInstance(type);
+            var type = Type.GetTypeFromProgID(VisualStudioProgId);
+            if (type == null)
+            {
+                Console.WriteLine("Unable to obtain the type of visual studio program id");
+                Console.WriteLine("The needed version was " + VisualStudioProgId);
+                return Constants.RETURN_ERROR;
+            }
+            var instanceObject = Activator.CreateInstance(type);
+            if (instanceObject == null)
+            {
+                Console.WriteLine("Unable to create a visual studio instance");
+                Console.WriteLine("The needed veersion was " + VisualStudioProgId);
+                return Constants.RETURN_ERROR;
+            }
+            DTE2 dte = (DTE2)instanceObject;
 
             dte.SuppressUI = true;
             dte.MainWindow.Visible = false;
             EnvDTE.Solution visualStudioSolution = dte.Solution;
-            visualStudioSolution.Open(@VisualStudioSolutionFilePath);
+            visualStudioSolution.Open(@visualStudioSolutionFilePath);
             EnvDTE.Project pro = visualStudioSolution.Projects.Item(1);
 
             ITcRemoteManager remoteManager = (ITcRemoteManager)dte.GetObject("TcRemoteManager");
