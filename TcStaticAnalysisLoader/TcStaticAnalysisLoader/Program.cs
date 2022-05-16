@@ -23,6 +23,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using CommandLine;
 using EnvDTE80;
+using Microsoft.Extensions.Logging;
 using TCatSysManagerLib;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
@@ -32,6 +33,10 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
         [STAThread]
         static int Main(string[] args)
         {
+            // Create a logger
+            var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            var logger = loggerFactory.CreateLogger<Program>();
+
             Options options = new();
             var result = Parser.Default.ParseArguments<Options>(args)
                                 .WithParsed(o => options = o);
@@ -41,18 +46,18 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                 return Constants.RETURN_ERROR;
             }
 
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 1: " + options.VisualStudioSolutionFilePath);
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 2: " + options.TwincatProjectFilePath);
+            logger?.LogDebug("TcStaticAnalysisLoader.exe : argument 1: {vsPath}", options.VisualStudioSolutionFilePath);
+            logger?.LogDebug("TcStaticAnalysisLoader.exe : argument 2: {tsPath}", options.TwincatProjectFilePath);
 
             /* Verify that the Visual Studio solution file and TwinCAT project file exists.*/
             if (!File.Exists(options.VisualStudioSolutionFilePath))
             {
-                Console.WriteLine("ERROR: Visual studio solution " + options.VisualStudioSolutionFilePath + " does not exist!");
+                logger?.LogError("ERROR: Visual studio solution {vsPath} does not exist!", options.VisualStudioSolutionFilePath);
                 return Constants.RETURN_ERROR;
             }
             if (!File.Exists(options.TwincatProjectFilePath))
             {
-                Console.WriteLine("ERROR : TwinCAT project file " + options.TwincatProjectFilePath + " does not exist!");
+                logger?.LogError("ERROR : TwinCAT project file {tsPath} does not exist!", options.TwincatProjectFilePath);
                 return Constants.RETURN_ERROR;
             }
 
@@ -65,7 +70,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                 if (line.StartsWith("VisualStudioVersion"))
                 {
                     string version = line.Substring(line.LastIndexOf('=') + 2);
-                    Console.WriteLine("In Visual Studio solution file, found visual studio version " + version);
+                    logger?.LogInformation("In Visual Studio solution file, found visual studio version {version}", version);
                     string[] numbers = version.Split('.');
                     string major = numbers[0];
                     string minor = numbers[1];
@@ -84,7 +89,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             if (!foundVsVersionLine)
             {
-                Console.WriteLine("Did not find Visual studio version in Visual studio solution file");
+                logger?.LogError("Did not find Visual studio version in Visual studio solution file");
                 return Constants.RETURN_ERROR;
             }
 
@@ -102,14 +107,14 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                     {
                         tcVersion = version.Substring(pFrom, pTo - pFrom);
                         foundTcVersionLine = true;
-                        Console.WriteLine("In TwinCAT project file, found version " + tcVersion);
+                        logger?.LogInformation("In TwinCAT project file, found version {version}", tcVersion);
                     }
                     break;
                 }
             }
             if (!foundTcVersionLine)
             {
-                Console.WriteLine("Did not find TcVersion in TwinCAT project file");
+                logger?.LogError("Did not find TcVersion in TwinCAT project file");
                 return Constants.RETURN_ERROR;
             }
 
@@ -122,8 +127,8 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             var compareResult = versionDetected.CompareTo(versionMin);
             if (compareResult < 0)
             {
-                Console.WriteLine("The detected TwinCAT version in the project does not support TE1200 static code analysis");
-                Console.WriteLine("The minimum version that supports TE1200 is " + Constants.MIN_TC_VERSION_FOR_SC_ANALYSIS);
+                logger?.LogError("The detected TwinCAT version in the project does not support TE1200 static code analysis\n" +
+                    "The minimum version that supports TE1200 is {version}", Constants.MIN_TC_VERSION_FOR_SC_ANALYSIS);
                 return Constants.RETURN_ERROR;
             }
 
@@ -136,15 +141,15 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             var type = Type.GetTypeFromProgID(VisualStudioProgId);
             if (type == null)
             {
-                Console.WriteLine("Unable to obtain the type of visual studio program id");
-                Console.WriteLine("The needed version was " + VisualStudioProgId);
+                logger?.LogError("Unable to obtain the type of visual studio program id\n" +
+                    "The needed version was {version}", VisualStudioProgId);
                 return Constants.RETURN_ERROR;
             }
             var instanceObject = Activator.CreateInstance(type);
             if (instanceObject == null)
             {
-                Console.WriteLine("Unable to create a visual studio instance");
-                Console.WriteLine("The needed veersion was " + VisualStudioProgId);
+                logger?.LogError("Unable to create a visual studio instance\n" +
+                    "The needed version was {version}", VisualStudioProgId);
                 return Constants.RETURN_ERROR;
             }
             DTE2 dte = (DTE2)instanceObject;
@@ -171,7 +176,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             ErrorItems errors = dte.ToolWindows.ErrorList.ErrorItems;
 
-            Console.WriteLine("Errors count: " + errors.Count);
+            logger?.LogInformation("Errors count: {errors}", errors.Count);
             int tcStaticAnalysisWarnings = 0;
             int tcStaticAnalysisErrors = 0;
             for (int i = 1; i <= errors.Count; i++)
@@ -179,9 +184,10 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                 ErrorItem item = errors.Item(i);
                 if (item.Description.StartsWith("SA") && (item.ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelLow))
                 {
-                    Console.WriteLine("Description: " + item.Description);
-                    Console.WriteLine("ErrorLevel: " + item.ErrorLevel);
-                    Console.WriteLine("Filename: " + item.FileName);
+                    logger?.LogInformation("Description: {description}\n" +
+                        "ErrorLevel: {errorLevel}\n" +
+                        "Filename: {fileName}",
+                        item.Description, item.ErrorLevel, item.FileName);
                     if (item.ErrorLevel == vsBuildErrorLevel.vsBuildErrorLevelMedium)
                         tcStaticAnalysisWarnings++;
                     else if (item.ErrorLevel == vsBuildErrorLevel.vsBuildErrorLevelHigh)
