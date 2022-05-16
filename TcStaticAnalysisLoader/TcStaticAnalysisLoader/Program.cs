@@ -21,8 +21,8 @@ IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+using CommandLine;
 using EnvDTE80;
-using NDesk.Options;
 using TCatSysManagerLib;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
@@ -32,47 +32,27 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
         [STAThread]
         static int Main(string[] args)
         {
-            bool showHelp = false;
-
-            string visualStudioSolutionFilePath = string.Empty;
-            string twincatProjectFilePath = string.Empty;
-
-            OptionSet options = new OptionSet()
-                .Add("v=|visualStudioSolutionFilePath=", v => visualStudioSolutionFilePath = v)
-                .Add("t=|twincatProjectFilePath=", t => twincatProjectFilePath = t)
-                .Add("?|h|help", h => showHelp = h != null);
-
-            try
+            Options options = new();
+            var result = Parser.Default.ParseArguments<Options>(args)
+                                .WithParsed(o => options = o);
+            // If help requested end the execution
+            if (result.Tag == ParserResultType.NotParsed)
             {
-                options.Parse(args);
-            }
-            catch (OptionException e)
-            {
-                Console.WriteLine(e.Message);
-                Console.WriteLine("Try `TcStaticAnalysisLoader --help' for more information.");
                 return Constants.RETURN_ERROR;
             }
-            options.Parse(args);
 
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 1: " + visualStudioSolutionFilePath);
-            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 2: " + twincatProjectFilePath);
+            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 1: " + options.VisualStudioSolutionFilePath);
+            Console.WriteLine("TcStaticAnalysisLoader.exe : argument 2: " + options.TwincatProjectFilePath);
 
-            /* Make sure the user has supplied the paths for both the Visual Studio solution file
-             * and the TwinCAT project file. Also verify that these two files exists.
-             */
-            if (showHelp || visualStudioSolutionFilePath == null || twincatProjectFilePath == null)
+            /* Verify that the Visual Studio solution file and TwinCAT project file exists.*/
+            if (!File.Exists(options.VisualStudioSolutionFilePath))
             {
-                DisplayHelp(options);
+                Console.WriteLine("ERROR: Visual studio solution " + options.VisualStudioSolutionFilePath + " does not exist!");
                 return Constants.RETURN_ERROR;
             }
-            if (!File.Exists(visualStudioSolutionFilePath))
+            if (!File.Exists(options.TwincatProjectFilePath))
             {
-                Console.WriteLine("ERROR: Visual studio solution " + visualStudioSolutionFilePath + " does not exist!");
-                return Constants.RETURN_ERROR;
-            }
-            if (!File.Exists(twincatProjectFilePath))
-            {
-                Console.WriteLine("ERROR : TwinCAT project file " + twincatProjectFilePath + " does not exist!");
+                Console.WriteLine("ERROR : TwinCAT project file " + options.TwincatProjectFilePath + " does not exist!");
                 return Constants.RETURN_ERROR;
             }
 
@@ -80,7 +60,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             /* Find visual studio version */
             string vsVersion = "";
             bool foundVsVersionLine = false;
-            foreach (string line in File.ReadLines(visualStudioSolutionFilePath))
+            foreach (string line in File.ReadLines(options.VisualStudioSolutionFilePath))
             {
                 if (line.StartsWith("VisualStudioVersion"))
                 {
@@ -111,7 +91,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             /* Find TwinCAT project version */
             string tcVersion = "";
             bool foundTcVersionLine = false;
-            foreach(string line in File.ReadLines(@twincatProjectFilePath))
+            foreach(string line in File.ReadLines(@options.TwincatProjectFilePath))
             {
                 if (line.Contains("TcVersion"))
                 {
@@ -172,7 +152,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             dte.SuppressUI = true;
             dte.MainWindow.Visible = false;
             EnvDTE.Solution visualStudioSolution = dte.Solution;
-            visualStudioSolution.Open(@visualStudioSolutionFilePath);
+            visualStudioSolution.Open(@options.VisualStudioSolutionFilePath);
             EnvDTE.Project pro = visualStudioSolution.Projects.Item(1);
 
             ITcRemoteManager remoteManager = (ITcRemoteManager)dte.GetObject("TcRemoteManager");
@@ -220,16 +200,6 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                 return Constants.RETURN_UNSTABLE;
             else
                 return Constants.RETURN_SUCCESSFULL;
-        }
-
-        static void DisplayHelp(OptionSet p)
-        {
-            Console.WriteLine("Usage: TcStaticAnalysisLoader [OPTIONS]");
-            Console.WriteLine("Loads the TwinCAT static code analysis loader program with the selected visual studio solution and TwinCAT project.");
-            Console.WriteLine("Example: TcStaticAnalysisLoader -v \"C:\\Jenkins\\workspace\\TcProject\\TcProject.sln\" -t \"C:\\Jenkins\\workspace\\TcProject\\PlcProject1\\PlcProj.tsproj\"");
-            Console.WriteLine();
-            Console.WriteLine("Options:");
-            p.WriteOptionDescriptions(Console.Out);
         }
     }
 }

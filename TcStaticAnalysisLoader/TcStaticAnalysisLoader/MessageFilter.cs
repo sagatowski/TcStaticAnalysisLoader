@@ -16,15 +16,13 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
         public static void Register()
         {
             IOleMessageFilter newFilter = new MessageFilter();
-            IOleMessageFilter oldFilter = null;
-            CoRegisterMessageFilter(newFilter, out oldFilter);
+            CoRegisterMessageFilter(newFilter, out _);
         }
 
         // Done with the filter, close it.
         public static void Revoke()
         {
-            IOleMessageFilter oldFilter = null;
-            CoRegisterMessageFilter(null, out oldFilter);
+            CoRegisterMessageFilter(null, out _);
         }
 
         //
