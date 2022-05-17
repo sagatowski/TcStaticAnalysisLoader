@@ -26,12 +26,19 @@ using EnvDTE80;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using TCatSysManagerLib;
-using System.Linq;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
 {
     class Program
     {
+        private enum ExitValues : int
+        {
+            RunFailed = -1,
+            RunOkAndNoErrors = 0,
+            RunOkAndErrors = 1,
+            RunOkAndWarnings = 2
+        }
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -45,7 +52,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             // If help requested end the execution
             if (result.Tag == ParserResultType.NotParsed)
             {
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
 
             logger?.LogDebug("TcStaticAnalysisLoader.exe : argument 1: {vsPath}", options.VisualStudioSolutionFilePath);
@@ -55,12 +62,12 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             if (!File.Exists(options.VisualStudioSolutionFilePath))
             {
                 logger?.LogError("ERROR: Visual studio solution {vsPath} does not exist!", options.VisualStudioSolutionFilePath);
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
             if (!File.Exists(options.TwincatProjectFilePath))
             {
                 logger?.LogError("ERROR : TwinCAT project file {tsPath} does not exist!", options.TwincatProjectFilePath);
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
 
             /* Find TwinCAT project version */
@@ -69,14 +76,15 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             /* Make sure TwinCAT version is at minimum version 3.1.4022.0 as the static code
              * analysis tool is only supported from this version and onward
              */
-            var versionMin = new Version(Constants.MIN_TC_VERSION_FOR_SC_ANALYSIS);
+            const string MIN_TC_VERSION_FOR_SC_ANALYSIS = "3.1.4022.0";
+            var versionMin = new Version(MIN_TC_VERSION_FOR_SC_ANALYSIS);
             var versionDetected = new Version(tcVersion);
             var compareResult = versionDetected.CompareTo(versionMin);
             if (compareResult < 0)
             {
                 logger?.LogError("The detected TwinCAT version in the project does not support TE1200 static code analysis\n" +
-                    "The minimum version that supports TE1200 is {version}", Constants.MIN_TC_VERSION_FOR_SC_ANALYSIS);
-                Environment.Exit(Constants.RETURN_ERROR);
+                    "The minimum version that supports TE1200 is {version}", MIN_TC_VERSION_FOR_SC_ANALYSIS);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
 
             MessageFilter.Register();
@@ -128,11 +136,11 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             /* Return the result to the user */
             if (staticAnalyzerErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.High))
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunOkAndErrors);
             else if (staticAnalyzerErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.Medium))
-                Environment.Exit(Constants.RETURN_UNSTABLE);
+                Environment.Exit((int)ExitValues.RunOkAndWarnings);
             else
-                Environment.Exit(Constants.RETURN_SUCCESSFULL);
+                Environment.Exit((int)ExitValues.RunOkAndNoErrors);
         }
 
         private static DTE2 GetDTEFromVisualStudioSolution(string visualStudioSolutionFilePath, ILogger? logger = null)
@@ -149,14 +157,14 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             {
                 logger?.LogError("Unable to obtain the type of visual studio program id\n" +
                     "The needed version was {version}", VisualStudioProgId);
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
             var instanceObject = Activator.CreateInstance(type);
             if (instanceObject == null)
             {
                 logger?.LogError("Unable to create a visual studio instance\n" +
                     "The needed version was {version}", VisualStudioProgId);
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
             DTE2 dte = (DTE2)instanceObject;
 
@@ -173,7 +181,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             if (match.Groups.Count < 2)
             {
                 logger?.LogError("Did not find Visual studio version in Visual studio solution file");
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
             logger?.LogInformation("In Visual Studio solution file, found visual studio version {version}", match.Groups[1].Value);
             return match.Groups[1].Value;
@@ -186,7 +194,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             if (match.Groups.Count < 2)
             {
                 logger?.LogError("Did not find TcVersion in TwinCAT project file");
-                Environment.Exit(Constants.RETURN_ERROR);
+                Environment.Exit((int)ExitValues.RunFailed);
             }
             logger?.LogInformation("In TwinCAT project file, found version {version}", match.Groups[1].Value);
             return match.Groups[1].Value;
