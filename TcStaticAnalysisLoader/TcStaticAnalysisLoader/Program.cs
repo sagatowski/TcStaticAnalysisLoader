@@ -131,7 +131,19 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             // Write error report if required
             if (!string.IsNullOrEmpty(options.ReportPath))
             {
-                File.WriteAllText(options.ReportPath, report.ToJson());
+                switch(options.ReportFormat.ToLower())
+                {
+                    case "default":
+                        File.WriteAllText(options.ReportPath, report.ToJson());
+                        break;
+                    case "gitlab":
+                        File.WriteAllText(options.ReportPath, new GitlabCI.CodeQuality.Report(report).ToJson());
+                        break;
+                    default:
+                        logger?.LogWarning("Unrecognized report format option: {format}", options.ReportFormat);
+                        break;
+                }
+                
             }
 
             /* Return the result to the user */

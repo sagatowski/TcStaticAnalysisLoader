@@ -13,5 +13,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
         [Option('r', "ReportPath", Required = false, HelpText = "Set the path where the error report will be generated")]
         public string ReportPath { get; set; } = string.Empty;
 
+        [Option('f', "ReportFormat", Required = false, HelpText = "Set the output format for the report file. Valid options: Default, Gitlab")]
+        public string ReportFormat { get; set; } = "Default";
     }
 }
