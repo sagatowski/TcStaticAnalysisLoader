@@ -32,7 +32,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
         public string ToJson()
         {
-            return JsonConvert.SerializeObject(this);
+            return JsonConvert.SerializeObject(this, Formatting.Indented);
         }
 
         private readonly List<VisualStudioError> _staticAnalyzerErrors = new();

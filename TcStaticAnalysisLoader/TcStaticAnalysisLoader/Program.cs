@@ -120,6 +120,12 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             MessageFilter.Revoke();
 
+            // Write error report if required
+            if (!string.IsNullOrEmpty(options.ReportPath))
+            {
+                File.WriteAllText(options.ReportPath, report.ToJson());
+            }
+
             /* Return the result to the user */
             if (staticAnalyzerErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.High))
                 Environment.Exit(Constants.RETURN_ERROR);
