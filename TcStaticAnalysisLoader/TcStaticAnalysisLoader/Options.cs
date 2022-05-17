@@ -10,5 +10,8 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
         [Option('t', "TwincatProjectFilePath", Required = true, HelpText = "Set the path to the twincat project file (.tsproj file)")]
         public string TwincatProjectFilePath { get; set; } = string.Empty;
 
+        [Option('r', "ReportPath", Required = false, HelpText = "Set the path where the error report will be generated")]
+        public string ReportPath { get; set; } = string.Empty;
+
     }
 }
