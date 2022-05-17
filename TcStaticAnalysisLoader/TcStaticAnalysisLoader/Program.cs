@@ -26,6 +26,7 @@ using EnvDTE80;
 using Microsoft.Extensions.Logging;
 using System.Text.RegularExpressions;
 using TCatSysManagerLib;
+using System.Linq;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
 {
@@ -98,19 +99,19 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             dte.Solution.SolutionBuild.Build(true);
 
             // Get active errors
-            List<VisualStudioError> errors = new ();
+            var report = new ErrorReport(options.VisualStudioSolutionFilePath, options.TwincatProjectFilePath);
             var comErrors = dte.ToolWindows.ErrorList.ErrorItems;
             for (var ii = 1; ii < comErrors.Count + 1; ii++)
             {
                 if (comErrors.Item(ii).ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelLow)
                 {
-                    errors.Add(new VisualStudioError(comErrors.Item(ii), options.VisualStudioSolutionFilePath));
+                    report.AddError(new VisualStudioError(comErrors.Item(ii), options.VisualStudioSolutionFilePath));
                 }
             }
 
             // Print all SA errors on screen
-            var saErrors = errors.Where(e => e.Code.StartsWith("SA")).ToList();
-            saErrors.ForEach(e => logger?.LogInformation("Description: {description}\n" +
+            var staticAnalyzerErrors = report.StaticAnalyzerErrors.ToList();
+            staticAnalyzerErrors.ForEach(e => logger?.LogInformation("Description: {description}\n" +
                         "ErrorLevel: {errorLevel}\n" +
                         "Filename: {fileName}",
                         e.Description, e.ErrorLevel, e.Location.FileName));
@@ -120,9 +121,9 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             MessageFilter.Revoke();
 
             /* Return the result to the user */
-            if (saErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.High))
+            if (staticAnalyzerErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.High))
                 Environment.Exit(Constants.RETURN_ERROR);
-            else if (saErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.Medium))
+            else if (staticAnalyzerErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.Medium))
                 Environment.Exit(Constants.RETURN_UNSTABLE);
             else
                 Environment.Exit(Constants.RETURN_SUCCESSFULL);
