@@ -98,35 +98,32 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             dte.Solution.SolutionBuild.Clean(true);
             dte.Solution.SolutionBuild.Build(true);
 
-            ErrorItems errors = dte.ToolWindows.ErrorList.ErrorItems;
-
-            logger?.LogInformation("Errors count: {errors}", errors.Count);
-            int tcStaticAnalysisWarnings = 0;
-            int tcStaticAnalysisErrors = 0;
-            for (int i = 1; i <= errors.Count; i++)
+            // Get active errors
+            List<VisualStudioError> errors = new ();
+            var comErrors = dte.ToolWindows.ErrorList.ErrorItems;
+            for (var ii = 1; ii < comErrors.Count + 1; ii++)
             {
-                ErrorItem item = errors.Item(i);
-                if (item.Description.StartsWith("SA") && (item.ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelLow))
+                if (comErrors.Item(ii).ErrorLevel != vsBuildErrorLevel.vsBuildErrorLevelLow)
                 {
-                    logger?.LogInformation("Description: {description}\n" +
-                        "ErrorLevel: {errorLevel}\n" +
-                        "Filename: {fileName}",
-                        item.Description, item.ErrorLevel, item.FileName);
-                    if (item.ErrorLevel == vsBuildErrorLevel.vsBuildErrorLevelMedium)
-                        tcStaticAnalysisWarnings++;
-                    else if (item.ErrorLevel == vsBuildErrorLevel.vsBuildErrorLevelHigh)
-                        tcStaticAnalysisErrors++;
+                    errors.Add(new VisualStudioError(comErrors.Item(ii), options.VisualStudioSolutionFilePath));
                 }
             }
+
+            // Print all SA errors on screen
+            var saErrors = errors.Where(e => e.Code.StartsWith("SA")).ToList();
+            saErrors.ForEach(e => logger?.LogInformation("Description: {description}\n" +
+                        "ErrorLevel: {errorLevel}\n" +
+                        "Filename: {fileName}",
+                        e.Description, e.ErrorLevel, e.Location.FileName));
 
             dte.Quit();
 
             MessageFilter.Revoke();
 
             /* Return the result to the user */
-            if (tcStaticAnalysisErrors > 0)
+            if (saErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.High))
                 Environment.Exit(Constants.RETURN_ERROR);
-            else if (tcStaticAnalysisWarnings > 0)
+            else if (saErrors.Any(e => e.ErrorLevel == VisualStudioErrorLevel.Medium))
                 Environment.Exit(Constants.RETURN_UNSTABLE);
             else
                 Environment.Exit(Constants.RETURN_SUCCESSFULL);
