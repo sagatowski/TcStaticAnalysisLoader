@@ -32,7 +32,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
     class Program
     {
         [STAThread]
-        static int Main(string[] args)
+        static void Main(string[] args)
         {
             // Create a logger
             var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
@@ -44,7 +44,7 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             // If help requested end the execution
             if (result.Tag == ParserResultType.NotParsed)
             {
-                return Constants.RETURN_ERROR;
+                Environment.Exit(Constants.RETURN_ERROR);
             }
 
             logger?.LogDebug("TcStaticAnalysisLoader.exe : argument 1: {vsPath}", options.VisualStudioSolutionFilePath);
@@ -54,19 +54,16 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             if (!File.Exists(options.VisualStudioSolutionFilePath))
             {
                 logger?.LogError("ERROR: Visual studio solution {vsPath} does not exist!", options.VisualStudioSolutionFilePath);
-                return Constants.RETURN_ERROR;
+                Environment.Exit(Constants.RETURN_ERROR);
             }
             if (!File.Exists(options.TwincatProjectFilePath))
             {
                 logger?.LogError("ERROR : TwinCAT project file {tsPath} does not exist!", options.TwincatProjectFilePath);
-                return Constants.RETURN_ERROR;
+                Environment.Exit(Constants.RETURN_ERROR);
             }
 
-
-            /* Find visual studio and TwinCAT project versions */
-            var vsVersion = GetVisualStudioVersion(options.VisualStudioSolutionFilePath, logger);
+            /* Find TwinCAT project version */
             var tcVersion = GetTwinCATVersion(options.TwincatProjectFilePath, logger);
-
 
             /* Make sure TwinCAT version is at minimum version 3.1.4022.0 as the static code
              * analysis tool is only supported from this version and onward
@@ -78,36 +75,14 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             {
                 logger?.LogError("The detected TwinCAT version in the project does not support TE1200 static code analysis\n" +
                     "The minimum version that supports TE1200 is {version}", Constants.MIN_TC_VERSION_FOR_SC_ANALYSIS);
-                return Constants.RETURN_ERROR;
+                Environment.Exit(Constants.RETURN_ERROR);
             }
 
             MessageFilter.Register();
 
-            /* Make sure the DTE loads with the same version of Visual Studio as the
-             * TwinCAT project was created in
-             */
-            string VisualStudioProgId = "VisualStudio.DTE." + vsVersion;
-            var type = Type.GetTypeFromProgID(VisualStudioProgId);
-            if (type == null)
-            {
-                logger?.LogError("Unable to obtain the type of visual studio program id\n" +
-                    "The needed version was {version}", VisualStudioProgId);
-                return Constants.RETURN_ERROR;
-            }
-            var instanceObject = Activator.CreateInstance(type);
-            if (instanceObject == null)
-            {
-                logger?.LogError("Unable to create a visual studio instance\n" +
-                    "The needed version was {version}", VisualStudioProgId);
-                return Constants.RETURN_ERROR;
-            }
-            DTE2 dte = (DTE2)instanceObject;
-
-            dte.SuppressUI = true;
-            dte.MainWindow.Visible = false;
-            EnvDTE.Solution visualStudioSolution = dte.Solution;
-            visualStudioSolution.Open(@options.VisualStudioSolutionFilePath);
-            EnvDTE.Project pro = visualStudioSolution.Projects.Item(1);
+            // Generate DTE for VS solution
+            var dte = GetDTEFromVisualStudioSolution(options.VisualStudioSolutionFilePath, logger);
+            EnvDTE.Project pro = dte.Solution.Projects.Item(1);
 
             ITcRemoteManager remoteManager = (ITcRemoteManager)dte.GetObject("TcRemoteManager");
             remoteManager.Version = tcVersion;
@@ -120,8 +95,8 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
              * - Starts with the string "SA", which is everything from the TE1200
              *   static code analysis tool
              */
-            visualStudioSolution.SolutionBuild.Clean(true);
-            visualStudioSolution.SolutionBuild.Build(true);
+            dte.Solution.SolutionBuild.Clean(true);
+            dte.Solution.SolutionBuild.Build(true);
 
             ErrorItems errors = dte.ToolWindows.ErrorList.ErrorItems;
 
@@ -150,11 +125,42 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             /* Return the result to the user */
             if (tcStaticAnalysisErrors > 0)
-                return Constants.RETURN_ERROR;
+                Environment.Exit(Constants.RETURN_ERROR);
             else if (tcStaticAnalysisWarnings > 0)
-                return Constants.RETURN_UNSTABLE;
+                Environment.Exit(Constants.RETURN_UNSTABLE);
             else
-                return Constants.RETURN_SUCCESSFULL;
+                Environment.Exit(Constants.RETURN_SUCCESSFULL);
+        }
+
+        private static DTE2 GetDTEFromVisualStudioSolution(string visualStudioSolutionFilePath, ILogger? logger = null)
+        {
+            // Get Visual Studio version
+            var vsVersion = GetVisualStudioVersion(visualStudioSolutionFilePath, logger);
+
+            /* Make sure the DTE loads with the same version of Visual Studio as the
+             * TwinCAT project was created in
+             */
+            string VisualStudioProgId = "VisualStudio.DTE." + vsVersion;
+            var type = Type.GetTypeFromProgID(VisualStudioProgId);
+            if (type == null)
+            {
+                logger?.LogError("Unable to obtain the type of visual studio program id\n" +
+                    "The needed version was {version}", VisualStudioProgId);
+                Environment.Exit(Constants.RETURN_ERROR);
+            }
+            var instanceObject = Activator.CreateInstance(type);
+            if (instanceObject == null)
+            {
+                logger?.LogError("Unable to create a visual studio instance\n" +
+                    "The needed version was {version}", VisualStudioProgId);
+                Environment.Exit(Constants.RETURN_ERROR);
+            }
+            DTE2 dte = (DTE2)instanceObject;
+
+            dte.SuppressUI = true;
+            dte.MainWindow.Visible = false;
+            dte.Solution.Open(visualStudioSolutionFilePath);
+            return dte;
         }
 
         private static string GetVisualStudioVersion(string visualStudioSolutionFilePath, ILogger? logger = null)
