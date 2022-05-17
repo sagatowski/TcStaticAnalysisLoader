@@ -82,7 +82,6 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
 
             // Generate DTE for VS solution
             var dte = GetDTEFromVisualStudioSolution(options.VisualStudioSolutionFilePath, logger);
-            EnvDTE.Project pro = dte.Solution.Projects.Item(1);
 
             ITcRemoteManager remoteManager = (ITcRemoteManager)dte.GetObject("TcRemoteManager");
             remoteManager.Version = tcVersion;
