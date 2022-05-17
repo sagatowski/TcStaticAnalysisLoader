@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 using CommandLine;
 using EnvDTE80;
 using Microsoft.Extensions.Logging;
+using System.Text.RegularExpressions;
 using TCatSysManagerLib;
 
 namespace AllTwinCAT.TcStaticAnalysisLoader
@@ -62,61 +63,9 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
             }
 
 
-            /* Find visual studio version */
-            string vsVersion = "";
-            bool foundVsVersionLine = false;
-            foreach (string line in File.ReadLines(options.VisualStudioSolutionFilePath))
-            {
-                if (line.StartsWith("VisualStudioVersion"))
-                {
-                    string version = line.Substring(line.LastIndexOf('=') + 2);
-                    logger?.LogInformation("In Visual Studio solution file, found visual studio version {version}", version);
-                    string[] numbers = version.Split('.');
-                    string major = numbers[0];
-                    string minor = numbers[1];
-
-                    bool isNumericMajor = int.TryParse(major, out int n);
-                    bool isNumericMinor = int.TryParse(minor, out int n2);
-
-                    if (isNumericMajor && isNumericMinor)
-                    {
-                        vsVersion = major + "." + minor;
-                        foundVsVersionLine = true;
-                    }
-                    break;
-                }
-            }
-
-            if (!foundVsVersionLine)
-            {
-                logger?.LogError("Did not find Visual studio version in Visual studio solution file");
-                return Constants.RETURN_ERROR;
-            }
-
-            /* Find TwinCAT project version */
-            string tcVersion = "";
-            bool foundTcVersionLine = false;
-            foreach(string line in File.ReadLines(@options.TwincatProjectFilePath))
-            {
-                if (line.Contains("TcVersion"))
-                {
-                    string version = line.Substring(line.LastIndexOf("TcVersion=\""));
-                    int pFrom = version.IndexOf("TcVersion=\"") + "TcVersion=\"".Length;
-                    int pTo = version.LastIndexOf("\">");
-                    if (pTo > pFrom)
-                    {
-                        tcVersion = version.Substring(pFrom, pTo - pFrom);
-                        foundTcVersionLine = true;
-                        logger?.LogInformation("In TwinCAT project file, found version {version}", tcVersion);
-                    }
-                    break;
-                }
-            }
-            if (!foundTcVersionLine)
-            {
-                logger?.LogError("Did not find TcVersion in TwinCAT project file");
-                return Constants.RETURN_ERROR;
-            }
+            /* Find visual studio and TwinCAT project versions */
+            var vsVersion = GetVisualStudioVersion(options.VisualStudioSolutionFilePath, logger);
+            var tcVersion = GetTwinCATVersion(options.TwincatProjectFilePath, logger);
 
 
             /* Make sure TwinCAT version is at minimum version 3.1.4022.0 as the static code
@@ -206,6 +155,32 @@ namespace AllTwinCAT.TcStaticAnalysisLoader
                 return Constants.RETURN_UNSTABLE;
             else
                 return Constants.RETURN_SUCCESSFULL;
+        }
+
+        private static string GetVisualStudioVersion(string visualStudioSolutionFilePath, ILogger? logger = null)
+        {
+            var vsVersionRegex = new Regex(@"^VisualStudioVersion\s*=\s*(\d+.\d+)", RegexOptions.Multiline);
+            var match = vsVersionRegex.Match(File.ReadAllText(visualStudioSolutionFilePath));
+            if (match.Groups.Count < 2)
+            {
+                logger?.LogError("Did not find Visual studio version in Visual studio solution file");
+                Environment.Exit(Constants.RETURN_ERROR);
+            }
+            logger?.LogInformation("In Visual Studio solution file, found visual studio version {version}", match.Groups[1].Value);
+            return match.Groups[1].Value;
+        }
+
+        private static string GetTwinCATVersion(string twincatProjectFilePath, ILogger? logger = null)
+        {
+            var tcVersionRegex = new Regex("TcVersion\\s*=\\s*\"(\\d.+)?\"", RegexOptions.Multiline);
+            var match = tcVersionRegex.Match(File.ReadAllText(twincatProjectFilePath));
+            if (match.Groups.Count < 2)
+            {
+                logger?.LogError("Did not find TcVersion in TwinCAT project file");
+                Environment.Exit(Constants.RETURN_ERROR);
+            }
+            logger?.LogInformation("In TwinCAT project file, found version {version}", match.Groups[1].Value);
+            return match.Groups[1].Value;
         }
     }
 }
