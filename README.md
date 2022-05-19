@@ -25,3 +25,7 @@ and reports the result back to the caller as either ERROR, UNSTABLE or SUCCESSFU
 which can be used for instance in a Jenkins build slave. The static code analysis is filtered
 out from the TwinCAT build procedure. This program is used together with the batch-script
 from the CodeAnalysisDemoTcLibrary folder.
+
+## Dependencies
+
+- The [.NET 6.0 runtime](https://dotnet.microsoft.com/en-us/download/dotnet/6.0) must be installed on the system
